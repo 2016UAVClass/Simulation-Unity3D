@@ -10,6 +10,8 @@ public class QCVTwo : MonoBehaviour {
 	public float ComputerRigidity = 45f;
 	public float ControlPower = 45f;
 
+	public PointType ttype;
+
 	public bool HQuad;
 
 	[Range(0f, 20f)]
@@ -49,6 +51,8 @@ public class QCVTwo : MonoBehaviour {
 	public float TrimThrottle;
 
 
+	public bool ReachedTarget;
+
 
 	public SpinProppeller P1;
 	public SpinProppeller P2;
@@ -67,11 +71,12 @@ public class QCVTwo : MonoBehaviour {
 		Stabalized
 	}
 
-	Vector3 WantedPosition;
+	public Vector3 WantedPosition;
 	public GameObject MoveTarget;
 
 	public void SetTarget(Vector3 pos)
 	{
+		ReachedTarget = false;
 		WantedPosition = new Vector3(pos.x, 0, pos.z);
 		if(MoveTarget != null)
 		{
@@ -201,35 +206,92 @@ public class QCVTwo : MonoBehaviour {
 
 	Vector4 QuadMoveTo(Vector3 WantPos, Vector3 Cur)
 	{
-		Vector3 NoHB = new Vector3(Qtr.position.z, WantPos.y, Qtr.position.z);
-		if(DesiredHieght == 0)
-			return Vector4.zero;
-		float throttle = (DesiredHieght-Qtr.position.y)/Mathf.Max(0.1f, DesiredHieght);
-		if(Vector3.Distance(WantPos, NoHB) < 2 && Qrb.velocity.magnitude < 0.7f)
+		Vector3 NoHB = new Vector3(Qtr.position.x, WantPos.y, Qtr.position.z);
+		float DH = DesiredHieght;
+		if(GetComponentInChildren<UAVMagnet>().hasTrap && ttype != PointType.Dropoff)
+			DH += 1.33f;
+
+		float throttle = (DH-Qtr.position.y)/Mathf.Max(0.1f, DesiredHieght);
+		if(Vector3.Distance(WantPos,NoHB) < 0.2f && Qrb.velocity.magnitude < 0.5f && ttype == PointType.Waypoint)
 		{
+			ReachedTarget = true;
 			return new Vector4(throttle,0,0,0);
 		}
+		if(Vector3.Distance(WantPos, NoHB) < .15f && Qrb.velocity.magnitude < 0.5f && !ReachedTarget)
+		{
+			if(ttype == PointType.Dropoff)
+			{
+				if(DesiredHieght > 1 && Qrb.velocity.y > -0.1f)
+				{
+					DesiredHieght -= Time.fixedDeltaTime;
+					return new Vector4(throttle,0,0,0);
+				}
+				else if(DesiredHieght <= 1 && Qrb.velocity.y > -0.2f)
+				{
+					DesiredHieght = 5;
+					GetComponentInChildren<UAVMagnet>().Release();
+				}
+				else
+				{
+					return new Vector4(throttle,0,0,0);
+				}
+			}
+			else if(ttype == PointType.Takeoff)
+			{
+				DesiredHieght = 5;
+			}
+			else if(ttype == PointType.Land)
+			{
+				if(DesiredHieght > 0.1 && Qrb.velocity.y > -0.3f)
+				{
+					DesiredHieght -= Time.fixedDeltaTime;
+					return new Vector4(throttle,0,0,0);
+				}
+				else if(DesiredHieght <= 0.1f)
+					DesiredHieght = 0;
+				else
+				{
+					return new Vector4(throttle,0,0,0);
+				}
+			}
+			ReachedTarget = true;
+			return new Vector4(throttle,0,0,0);
+		}
+
+		if(DesiredHieght == 0)
+			return Vector4.zero;
 		List<float> Dists = new List<float>();
 		Dists.Add(Vector3.Distance(P1.transform.position, WantPos));
 		Dists.Add(Vector3.Distance(P2.transform.position, WantPos));
 		Dists.Add(Vector3.Distance(P3.transform.position, WantPos));
 		Dists.Add(Vector3.Distance(P4.transform.position, WantPos));
-		int high = 0;
-		float highDist = Dists[0];
+		int low = 0;
+		float lowDist = Dists[0];
 		for(int i=0; i<Dists.Count; i++)
 		{
-			if(Dists[i] > highDist)
+			if(Dists[i] < lowDist)
 			{
-				high = i;
-				highDist = Dists[i];
+				low = i;
+				lowDist = Dists[i];
 			}
+		}
+		for(int i = 0; i< Dists.Count; i++)
+		{
+			Dists[i] -= lowDist;
 		}
 		float dist = Vector3.Distance(WantPos, NoHB);
 		float mult = Mathf.Clamp(Mathf.Sqrt(dist/10.0f), 5.0f, 100.0f);
+		mult /= 2;
+		/*
 		if(high == 0) P1.SpinProp(MotorPower/mult);
 		if(high == 1) P2.SpinProp(MotorPower/mult);
 		if(high == 2) P3.SpinProp(MotorPower/mult);
 		if(high == 3) P4.SpinProp(MotorPower/mult);
+		*/
+		P1.SpinProp(MotorPower/(mult/Dists[0]));
+		P2.SpinProp(MotorPower/(mult/Dists[1]));
+		P3.SpinProp(MotorPower/(mult/Dists[2]));
+		P4.SpinProp(MotorPower/(mult/Dists[3]));
 		return new Vector4(throttle,0,0,0);
 	}
 

@@ -5,6 +5,7 @@ public class UAVMagnet : MonoBehaviour
 {
 
 	GameObject ConnectedTrap;
+	public bool hasTrap;
 
 	public void Release()
 	{
@@ -12,6 +13,7 @@ public class UAVMagnet : MonoBehaviour
 		{
 			Destroy(ConnectedTrap.GetComponent<FixedJoint>());
 			ConnectedTrap = null;
+			hasTrap = false;
 		}
 	}
 
@@ -23,6 +25,7 @@ public class UAVMagnet : MonoBehaviour
 			Trap.AddComponent<FixedJoint>();
 			Trap.GetComponent<FixedJoint>().connectedBody = GetComponent<Rigidbody>();
 			ConnectedTrap = Trap;
+			hasTrap = true;
 		}
 	}
 }

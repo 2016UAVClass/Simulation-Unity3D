@@ -3,6 +3,10 @@ using System.Collections;
 
 public class MoveTo : MonoBehaviour {
 	
+	public Vector3 WantPos;
+
+	Vector3 wp;
+
 
 	// Update is called once per frame
 	void Update () 
@@ -16,13 +20,18 @@ public class MoveTo : MonoBehaviour {
 
 				if( hit.collider.tag == "Base" )
 				{
-					QCVTwo[] t = GameObject.FindObjectsOfType<QCVTwo>();
-					foreach(var v in t)
-					{
-						v.SetTarget(hit.point);
-					}
+					WantPos = hit.point;
 				}
 					 
+			}
+		}
+		if(wp != WantPos)
+		{
+			wp = WantPos;
+			QCVTwo[] t = GameObject.FindObjectsOfType<QCVTwo>();
+			foreach(var v in t)
+			{
+				v.SetTarget(WantPos);
 			}
 		}
 	}
