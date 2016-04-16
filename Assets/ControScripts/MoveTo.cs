@@ -16,7 +16,11 @@ public class MoveTo : MonoBehaviour {
 
 				if( hit.collider.tag == "Base" )
 				{
-					GameObject.FindObjectOfType<QCVTwo>().SetTarget(hit.point);
+					QCVTwo[] t = GameObject.FindObjectsOfType<QCVTwo>();
+					foreach(var v in t)
+					{
+						v.SetTarget(hit.point);
+					}
 				}
 					 
 			}
