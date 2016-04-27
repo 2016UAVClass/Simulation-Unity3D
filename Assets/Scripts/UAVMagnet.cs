@@ -22,6 +22,7 @@ public class UAVMagnet : MonoBehaviour
 		if(col.GetComponent<TrapMagnet>() != null && ConnectedTrap == null)
 		{
 			GameObject Trap = col.GetComponentInParent<Rigidbody>().gameObject;
+			Trap.transform.position = new Vector3(transform.position.x, Trap.transform.position.y, transform.position.z);
 			Trap.AddComponent<FixedJoint>();
 			Trap.GetComponent<FixedJoint>().connectedBody = GetComponent<Rigidbody>();
 			ConnectedTrap = Trap;

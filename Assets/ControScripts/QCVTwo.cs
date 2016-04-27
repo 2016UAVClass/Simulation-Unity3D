@@ -204,29 +204,53 @@ public class QCVTwo : MonoBehaviour {
 
 	}
 
+	public float AH = 0;
+	public float MH = 0;
+	public float OS;
 	Vector4 QuadMoveTo(Vector3 WantPos, Vector3 Cur)
 	{
+		//Vertical Distance Prop Calculations
+		OS = DesiredHieght-Qtr.position.y-(Qrb.velocity.y/2.0f);
+		AH += Time.deltaTime*OS*0.5f;
+
 		Vector3 NoHB = new Vector3(Qtr.position.x, WantPos.y, Qtr.position.z);
 		float DH = DesiredHieght;
-		if(GetComponentInChildren<UAVMagnet>().hasTrap && ttype != PointType.Dropoff)
-			DH += 1.33f;
 
-		float throttle = (DH-Qtr.position.y)/Mathf.Max(0.1f, DesiredHieght);
+		float throttle = (OS+AH)/Mathf.Max(0.1f, DesiredHieght);
+		//Node Type Handling
 		if(Vector3.Distance(WantPos,NoHB) < 0.2f && Qrb.velocity.magnitude < 0.5f && ttype == PointType.Waypoint)
 		{
 			ReachedTarget = true;
+			MH = 0;
 			return new Vector4(throttle,0,0,0);
 		}
-		if(Vector3.Distance(WantPos, NoHB) < .15f && Qrb.velocity.magnitude < 0.5f && !ReachedTarget)
+		else if(ttype == PointType.Pickup)
+		{
+			if(DesiredHieght > 0.25f && Qrb.velocity.y > -0.3f)
+			{
+				DesiredHieght -= Time.fixedDeltaTime;
+			}
+			else if(DesiredHieght <= 0.25f && Qrb.velocity.y > -0.1f && !GetComponentInChildren<UAVMagnet>().hasTrap)
+			{
+				DesiredHieght = 0.2f;
+			}
+			else if(GetComponentInChildren<UAVMagnet>().hasTrap)
+			{
+				DesiredHieght = 5;
+				ReachedTarget = true;
+				return new Vector4(throttle,0,0,0);
+			}
+		}
+		else if(Vector3.Distance(WantPos, NoHB) < .25f && Mathf.Abs(Qrb.velocity.y) < 0.8f && !ReachedTarget)
 		{
 			if(ttype == PointType.Dropoff)
 			{
-				if(DesiredHieght > 1 && Qrb.velocity.y > -0.1f)
+				if(DesiredHieght > 0.4f && Qrb.velocity.y > -0.3f)
 				{
 					DesiredHieght -= Time.fixedDeltaTime;
 					return new Vector4(throttle,0,0,0);
 				}
-				else if(DesiredHieght <= 1 && Qrb.velocity.y > -0.2f)
+				else if(DesiredHieght <= 0.4f && Qrb.velocity.y > -0.3f && Qtr.position.y <= 0.5f)
 				{
 					DesiredHieght = 5;
 					GetComponentInChildren<UAVMagnet>().Release();
@@ -260,6 +284,8 @@ public class QCVTwo : MonoBehaviour {
 
 		if(DesiredHieght == 0)
 			return Vector4.zero;
+
+		//Horizontal Distance Calculations
 		List<float> Dists = new List<float>();
 		Dists.Add(Vector3.Distance(P1.transform.position, WantPos));
 		Dists.Add(Vector3.Distance(P2.transform.position, WantPos));
@@ -267,6 +293,20 @@ public class QCVTwo : MonoBehaviour {
 		Dists.Add(Vector3.Distance(P4.transform.position, WantPos));
 		int low = 0;
 		float lowDist = Dists[0];
+
+		Vector2 NV = new Vector2(Qrb.velocity.x, Qrb.velocity.z).normalized;
+		Vector2 TD = new Vector2(WantPos.x - Qtr.position.x, WantPos.z - Qtr.position.z).normalized;
+		float dir = Vector2.Dot(NV, TD);
+		float off = dir*(new Vector2(Qrb.velocity.x, Qrb.velocity.z).magnitude);
+		off *= 2f;
+		float dv = Vector2.Distance(new Vector2(Qtr.position.x, Qtr.position.z), new Vector2(WantPos.x, WantPos.z)) - off;
+		float rDist = Vector2.Distance(Qtr.position, WantPos);
+		dv = Mathf.Clamp(dv, -1f,1f);
+		MH += Time.deltaTime;
+
+		if(ReachedTarget || ttype != PointType.Waypoint)
+			MH = 0;
+
 		for(int i=0; i<Dists.Count; i++)
 		{
 			if(Dists[i] < lowDist)
@@ -277,8 +317,10 @@ public class QCVTwo : MonoBehaviour {
 		}
 		for(int i = 0; i< Dists.Count; i++)
 		{
+			Dists[i] -= Mathf.Clamp(8*dv*(1-(Dists[i]/rDist)), -0.2f, 10f);
 			Dists[i] -= lowDist;
 		}
+
 		float dist = Vector3.Distance(WantPos, NoHB);
 		float mult = Mathf.Clamp(Mathf.Sqrt(dist/10.0f), 5.0f, 100.0f);
 		mult /= 2;
@@ -288,10 +330,10 @@ public class QCVTwo : MonoBehaviour {
 		if(high == 2) P3.SpinProp(MotorPower/mult);
 		if(high == 3) P4.SpinProp(MotorPower/mult);
 		*/
-		P1.SpinProp(MotorPower/(mult/Dists[0]));
-		P2.SpinProp(MotorPower/(mult/Dists[1]));
-		P3.SpinProp(MotorPower/(mult/Dists[2]));
-		P4.SpinProp(MotorPower/(mult/Dists[3]));
+		P1.SpinProp((MotorPower/((mult)/Dists[0])));
+		P2.SpinProp((MotorPower/((mult)/Dists[1])));
+		P3.SpinProp((MotorPower/((mult)/Dists[2])));
+		P4.SpinProp((MotorPower/((mult)/Dists[3])));
 		return new Vector4(throttle,0,0,0);
 	}
 
